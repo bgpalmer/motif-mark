@@ -100,7 +100,6 @@ class Gene(NucleicAcidSequence):
         for idx, motif in enumerate(motifs):
             for start in range(self.__nkmers(motif)):             
                 sequence = gene[start:len(motif) + start]
-                # print(sequence)
                 match = searcher.match(motif, sequence)
                 if match: self._motifs[idx].append((start, motif, sequence))
 
@@ -205,13 +204,12 @@ class MotifMarkFigure():
             ctx.set_line_width(line_width * 3.)
             color_idx = 0
             for motif in motifs:
-                for start, _, _ in motif:
+                for start, m, _ in motif:
                     motif_x = rect[0] + start
                     ctx.move_to(motif_x, motif_y)
-                    ctx.line_to(motif_x + len(motif), motif_y) 
+                    ctx.line_to(motif_x + len(m), motif_y) 
                     ctx.set_source_rgb(*self._colors[color_idx])
                     ctx.stroke()
-
                 color_idx += 1
                 motif_y += motif_height
 
@@ -308,7 +306,6 @@ if __name__ == "__main__":
     for gene in genes:
         matches = gene.find_motifs(motifs, matcher)
         figure.append_gene_plot(gene, matches)
-        # print(figure._plots)
 
     figure.draw()
     figure.save('output')
