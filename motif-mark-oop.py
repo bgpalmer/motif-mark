@@ -27,6 +27,9 @@ def oneline_fasta(fasta_fp) -> str:
     yield seq
 
 
+'''
+Base class with some overwritten built ins to make my code look cool.
+'''
 class NucleicAcidSequence():
     def __init__(self, sequence):
         self._sequence = sequence
@@ -50,6 +53,11 @@ class Motif(NucleicAcidSequence):
         super().__init__(sequence)
 
 
+'''
+Matcher class that has it's rules and does a string comparison.
+All comparisons are with capitalized characters, 
+so string comparison are not case sensitive
+'''
 class IUPAC_Matcher():
     def __init__(self):
         self.__rules = {
@@ -79,12 +87,15 @@ class Gene(NucleicAcidSequence):
     def __init__(self, name, sequence):
         super().__init__(sequence)
         self._name = name
+
+        # sometimes you just throw something at the wall and it works.
+        # definitely could be done iteratively.
+
         self._exons = re.split(f"[{string.ascii_lowercase}]+", self._sequence)
         self._introns = re.split(f"[{string.ascii_uppercase}]+", self._sequence)
         self._splices = list(chain.from_iterable(zip(self._exons, self._introns)))
         self._splices = list(filter(None, self._splices))
         self._motifs = []
-        self._overlaps = None  
 
 
     def __str__(self):
@@ -96,6 +107,11 @@ class Gene(NucleicAcidSequence):
 
 
     def find_motifs(self, motifs, searcher):
+        
+        '''
+        Find the motifs using kmers.
+        '''
+
         self._motifs = [ list() for _ in range(len(motifs)) ]
         for idx, motif in enumerate(motifs):
             for start in range(self.__nkmers(motif)):             
@@ -119,6 +135,7 @@ class MotifMarkFigure():
         self._n_motifs = len(motifs)
         self._motif_names = [str(s) for s in motifs]
 
+        # colors are just going to be randomly drawn. 
         self._colors = ()
         for _ in range(self._n_motifs):
             motif_color = ()
@@ -129,27 +146,60 @@ class MotifMarkFigure():
 
     def append_gene_plot(self, gene, motifs):
 
-        # determine if we will need to scale x dim
+        '''
+        Calculate the dimensions of the plot and store with the gene and motifs
+        Additionally, keep a running track of any scaling that needs to be done.
+        '''
+
+        ''' Check length does not go over image dimensions '''
+
         x = 1. if len(gene) <= self._dims[0] else self._dims[0] / len(gene)
         self._xy_scale = (min(self._xy_scale[0], x), 1.)  # (gene length closest to figure width, height unchanged)
+
+        ''' Calculate the rectangle dimensions '''
+
         (x_pad, y_pad), (width_pad, height_pad) = self._offset
         rect = None
         if 0 == len(self._plots):
-            # rect = (x_pad, y_pad, len(gene) - width_pad, y_pad + (self._dims[1] / (1 + self._n_genes)))
             rect = (x_pad, y_pad, len(gene), y_pad + (self._dims[1] / (1 + self._n_genes)))
-
         else:
             prev_area, _, _ = self._plots[-1]
-            # rect = (x_pad, prev_area[3], len(gene) - width_pad, prev_area[3] + (self._dims[1] / (1 + self._n_genes)))
             rect = (x_pad, prev_area[3], len(gene), prev_area[3] + (self._dims[1] / (1 + self._n_genes)))
 
+
+        # append the dimensions, gene, and motif to be drawn
         self._plots.append((rect, gene, motifs))
 
+
     def draw(self):
+
+        ''' 
+        Image drawing mega function:
+         - title
+             - gene name
+             - gene dimensions
+             - exons and introns
+             - motifs
+         - legend
+         '''
+
         ctx = cairo.Context(self._surface)
+
+        ''' title '''
+
+        ctx.set_source_rgb(*(.1, .1, .1))
+        ctx.select_font_face("Purisa", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+        ctx.set_font_size(13)
+        (_, _, text_width, text_height, _, _) = ctx.text_extents(f"{self._title}")
+        ctx.move_to(((self._dims[0] / 2) - (text_width / 2)), text_height)
+        ctx.show_text(f"{self._title}")
+        ctx.stroke()
+
+        tx, ty = 0, text_height + 3
         for rect, gene, motifs in self._plots:
-            x, y = (rect[0]), (rect[1])
-            # Draw text 
+            x, y = (tx + rect[0]), (ty + rect[1])
+            
+            ''' Draw text '''
 
             ctx.set_source_rgb(*(.1, .1, .1))
             ctx.select_font_face("Purisa", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
@@ -160,15 +210,13 @@ class MotifMarkFigure():
             ctx.stroke()
             ctx.save()
 
-            # Draw gene
+            ''' Draw gene '''
 
             rgb = (.3, .4, .5)
             line_width = 3.
             ctx.set_source_rgb(*rgb)
             ctx.set_line_width(line_width)
-            ctx.scale(*self._xy_scale)
-            # an area with coordinates of
-            # (left, right, top, bottom) edges in absolute coordinates: 
+            ctx.scale(*self._xy_scale) 
             gene_left, gene_top = x, y + text_height
             (x, y), (x1, y1) = (gene_left, gene_top), (rect[2], rect[3])
             r = 10
@@ -180,7 +228,7 @@ class MotifMarkFigure():
             ctx.close_path() # adds line segment to back to beginning
             ctx.stroke()
             
-            # Draw Exons & Introns
+            ''' Draw Exons & Introns '''
 
             last_x = x
             for splice in gene._splices:
@@ -195,13 +243,13 @@ class MotifMarkFigure():
                 ctx.stroke()
                 last_x += len(splice)
 
-            # Draw Motifs
+            ''' Draw Motifs '''
 
             gene_height = y1 - y
             motif_height = gene_height / len(motifs)
             motif_y = (motif_height / 2.) + gene_top
             ctx.set_source_rgb(*(.1, .1, .1))
-            ctx.set_line_width(line_width * 3.)
+            ctx.set_line_width(line_width * 2.)
             color_idx = 0
             for motif in motifs:
                 for start, m, _ in motif:
@@ -215,8 +263,9 @@ class MotifMarkFigure():
 
             ctx.restore()
 
-        # Legend
+        ''' Legend '''
 
+        # Start with the exons and introns
         color_idx = 0
         sq = 20
         x, y, x1, y1 = 0, self._dims[1] - sq, sq, self._dims[1]
@@ -241,6 +290,7 @@ class MotifMarkFigure():
             x += text_width + (2*r)
             x1 += text_width + (2*r) 
 
+        # Now add color - motif legend values
         for motif in self._motif_names:
             ctx.arc(x + r, y + r, r, pi, 3 * pi / 2)   # note: pi is where I pictured 0 would be?
             ctx.arc(x1 - r, y + r, r, 3 * pi / 2, 0)
@@ -268,10 +318,12 @@ class MotifMarkFigure():
 
 
     def save_png(self, filename):
-        self._surface.write_to_png(f"{filename}.png")
+        self._surface.write_to_png(f"{filename}")
 
 
 if __name__ == "__main__":
+
+    # for colors
     random.seed(7)
 
     parser = argparse.ArgumentParser(description="This program finds motifs and plots them.")
@@ -283,7 +335,7 @@ if __name__ == "__main__":
     if ext != ".fa" and ext != ".fasta":
         raise ValueError("Argument for fasta parameter is not a fasta file (*.fa, *.fasta)")
 
-    OUTPUT_PNG = f"{os.getcwd()}/{name}"
+    OUTPUT_PNG = f"{os.getcwd()}/{name}.png"
 
     ''' Read in the motifs '''
 
@@ -299,7 +351,7 @@ if __name__ == "__main__":
 
     ''' Make Figure '''
 
-    figure = MotifMarkFigure('Main', genes, motifs)
+    figure = MotifMarkFigure(f"{options.FASTA.name}-{options.MOTIFS.name}", genes, motifs)
     matcher = IUPAC_Matcher()
 
     matches = []
