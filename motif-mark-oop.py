@@ -267,7 +267,7 @@ class MotifMarkFigure():
         return self._plots[idx]
 
 
-    def save(self, filename):
+    def save_png(self, filename):
         self._surface.write_to_png(f"{filename}.png")
 
 
@@ -283,7 +283,7 @@ if __name__ == "__main__":
     if ext != ".fa" and ext != ".fasta":
         raise ValueError("Argument for fasta parameter is not a fasta file (*.fa, *.fasta)")
 
-    OUTPUT_PNG = f"{os.getcwd()}/{name}.png"
+    OUTPUT_PNG = f"{os.getcwd()}/{name}"
 
     ''' Read in the motifs '''
 
@@ -308,5 +308,5 @@ if __name__ == "__main__":
         figure.append_gene_plot(gene, matches)
 
     figure.draw()
-    figure.save('output')
+    figure.save_png(OUTPUT_PNG)
 
